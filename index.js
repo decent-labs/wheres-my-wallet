@@ -95,17 +95,19 @@ const checkValidity = async (seed, paths, gap, longestWord, updateIteration) => 
 }
 
 const iterateWords = async (seedArray, wordlist, wordIndex, progress, progressIndex, callback) => {
+  let currentProgress = progress.indexes[progressIndex]
+
   const updateProgress = () => {
     fs.writeFileSync("./PROGRESS.json", JSON.stringify(progress))
   }
 
-  for (let i = progress.indexes[progressIndex].wordListIndex; i < wordlist.length; i++) {
-    progress.indexes[progressIndex].wordListIndex = i
+  for (let i = currentProgress.wordListIndex; i < wordlist.length; i++) {
+    currentProgress.wordListIndex = i
     seedArray[wordIndex] = wordlist[i]
     await callback(seedArray, updateProgress)
   }
 
-  progress.indexes[progressIndex].wordListIndex = 0
+  currentProgress.wordListIndex = 0
 }
 
 const getWrongWord = async (seedArray, otherIndex, progress, progressIndex, callback) => {
