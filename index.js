@@ -97,14 +97,10 @@ const checkValidity = async (seed, paths, gap, longestWord, updateIteration) => 
 const iterateWords = async (seedArray, wordlist, wordIndex, progress, progressIndex, callback) => {
   let currentProgress = progress.indexes[progressIndex]
 
-  const updateProgress = () => {
-    fs.writeFileSync("./PROGRESS.json", JSON.stringify(progress))
-  }
-
   for (let i = currentProgress.wordListIndex; i < wordlist.length; i++) {
     currentProgress.wordListIndex = i
     seedArray[wordIndex] = wordlist[i]
-    await callback(seedArray, updateProgress)
+    await callback(seedArray, () => progressFile(progress))
   }
 
   currentProgress.wordListIndex = 0
@@ -122,7 +118,7 @@ const getWrongWord = async (seedArray, otherIndex, progress, progressIndex, call
     if (otherIndex >= i) continue
 
     currentProgress.seedIndex = i
-    fs.writeFileSync("./PROGRESS.json", JSON.stringify(progress))
+    progressFile(progress)
 
     const badWord = seedArray[i]
     await callback(i, seedArray)
@@ -130,12 +126,13 @@ const getWrongWord = async (seedArray, otherIndex, progress, progressIndex, call
   }
 }
 
-const getProgress = () => {
+const progressFile = progress => {
   const progressPath = "./PROGRESS.json"
+  const write = (path, progress) => fs.writeFileSync(path, JSON.stringify(progress))
+  if (progress) return write(progressPath, progress)
   if (fs.existsSync(progressPath)) return require(progressPath)
-
   const defaultData = { indexes: [] }
-  fs.writeFileSync(progressPath, JSON.stringify(defaultData))
+  write(progressPath, defaultData)
   return require(progressPath)
 }
 
@@ -147,7 +144,7 @@ const findLongestWord = wordlist => {
 }
 
 const findMoney = async (badSeed, paths, gap, wordlist) => {
-  const progress = getProgress()
+  const progress = progressFile()
   const longestWord = findLongestWord(wordlist)
   const seedArray = badSeed.split(" ")
 
