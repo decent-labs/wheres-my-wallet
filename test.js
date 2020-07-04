@@ -59,6 +59,13 @@ const progressFile = progress => {
   return require(progressPath)
 }
 
+const maxCounts = (progress, index, seedLength, wordListLength) => {
+  let currentProgress = progress.indexes[index]
+  currentProgress.seedIndex = seedLength - 1
+  currentProgress.wordListIndex = wordListLength - 1
+  progressFile(progress)
+}
+
 const findMoney = async (badSeed, wordlist) => {
   const progress = progressFile()
   const seedArray = badSeed.split(" ")
@@ -69,6 +76,7 @@ const findMoney = async (badSeed, wordlist) => {
       await checkValidity(seedArray, updateIteration)
     })
   })
+  maxCounts(progress, 0, seedArray.length, wordlist.length)
 
   // double word replacement
   await getWrongWord(seedArray, -1, progress, 1, async (wordOneIndex, seedArray) => {
@@ -80,6 +88,8 @@ const findMoney = async (badSeed, wordlist) => {
       })
     })
   })
+  maxCounts(progress, 1, seedArray.length, wordlist.length)
+  maxCounts(progress, 2, seedArray.length, wordlist.length)
 }
 
 const go = async (badSeed, wordlist) => {
