@@ -124,6 +124,8 @@ const getWrongWord = async (seedArray, otherIndex, progress, progressIndex, call
     await callback(i, seedArray)
     seedArray[i] = badWord
   }
+
+  currentProgress.seedIndex = 0
 }
 
 const progressFile = progress => {
