@@ -130,7 +130,7 @@ const getWrongWord = async (seedArray, otherIndex, progress, progressIndex, call
 
 const progressFile = progress => {
   const progressPath = "./PROGRESS.json"
-  const write = (path, progress) => fs.writeFileSync(path, JSON.stringify(progress))
+  const write = (path, progress) => fs.writeFileSync(path, JSON.stringify(progress, null, "\t"))
   if (progress) return write(progressPath, progress)
   if (fs.existsSync(progressPath)) return require(progressPath)
   const defaultData = { indexes: [] }
