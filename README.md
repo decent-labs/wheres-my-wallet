@@ -58,7 +58,8 @@ Finally, set your Ethereum provider URL, to be used for checking address balance
   - Append to file, don't overwrite it
 - Save `problems` to disk when `problems` are found
   - Append to file, don't overwrite it
-- DRY the file access
-- Update structure of PROGRESS.json to be a little friendly for the implementer
+- Update structure of `PROGRESS.json` to be a little friendly for the implementer
 - Do better error handling on user-inputs (env variables)
 - Make better tests
+- Refactor so that user can set an environment variable for the "number of concurrent word replacements" (eg. 1, 2, 3, 4...)
+  - This has been really hard for me to figure out. I think some kind of recursive call, but the callback-style of the code is making it difficult
