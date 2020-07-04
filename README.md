@@ -52,7 +52,7 @@ will be checked.
 
 Finally, set your Ethereum provider URL, to be used for checking address balances. Every valid address that's generated from every valid seed phrase that's generated will make a `getBalance(address)` call against this node, so get ready for a barrage of network requests.
 
-## TODO
+## TODOs and Known Bugs
 
 - Save `money` to disk when `money` is found
   - Append to file, don't overwrite it
@@ -63,3 +63,5 @@ Finally, set your Ethereum provider URL, to be used for checking address balance
 - Make better tests
 - Refactor so that user can set an environment variable for the "number of concurrent word replacements" (eg. 1, 2, 3, 4...)
   - This has been really hard for me to figure out. I think some kind of recursive call, but the callback-style of the code is making it difficult
+- Figure out how to make the progress counters not reset to 0 when an entire "pass" is finished
+  - That is, when the single-replacement pass is done, the single-replacement counters reset back to 0. Figure out how to stop doing that, so that if we re-run again, the single-pass doesn't run again.

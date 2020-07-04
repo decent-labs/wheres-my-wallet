@@ -104,6 +104,7 @@ const iterateWords = async (seedArray, wordlist, wordIndex, progress, progressIn
   }
 
   currentProgress.wordListIndex = 0
+  progressFile(progress)
 }
 
 const getWrongWord = async (seedArray, otherIndex, progress, progressIndex, callback) => {
@@ -112,6 +113,7 @@ const getWrongWord = async (seedArray, otherIndex, progress, progressIndex, call
   if (!currentProgress) {
     progress.indexes[progressIndex] = { seedIndex: 0, wordListIndex: 0 }
     currentProgress = progress.indexes[progressIndex]
+    progressFile(progress)
   }
 
   for (let i = currentProgress.seedIndex; i < seedArray.length; i++) {
@@ -126,6 +128,7 @@ const getWrongWord = async (seedArray, otherIndex, progress, progressIndex, call
   }
 
   currentProgress.seedIndex = 0
+  progressFile(progress)
 }
 
 const progressFile = progress => {
