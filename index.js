@@ -1,42 +1,38 @@
 require("dotenv").config()
 
 const lpad = require("lpad")
-
 const bip39 = require("bip39")
-const { hdkey } = require("ethereumjs-wallet")
-
-const Web3 = require("web3")
-const web3 = new Web3(new Web3.providers.HttpProvider(process.env.ETHEREUM_PROVIDER_URL))
-
+const bitcoin = require("bitcoinjs-lib")
+const ElectrumCli = require('electrum-client')
 const fs = require("fs")
 
 const money = []
 const problems = []
 
-const getBalance = async address => {
-  const balancePromise = address => {
-    return new Promise((resolve, reject) => {
-      web3.eth.getBalance(address, (err, result) => {
-        if (err) reject(err)
-        else resolve(result)
-      })
-    })
-  }
-
-  const wei = await balancePromise(address)
-  const balance = web3.utils.fromWei(wei, "ether")
-  return balance
+const getHistory = async (ecl, address) => {
+  const revHash = bitcoin.crypto.sha256(bitcoin.address.toOutputScript(address)).reverse().toString('hex')
+  const history = (await ecl.blockchainScripthash_getHistory(revHash)).length > 0
+  return history
 }
 
 const getAddress = (hdWallet, path) => {
-  const wallet = hdWallet.derivePath(path).getWallet()
-  const address = wallet.getAddressString()
+  const wallet = hdWallet.derivePath(path)
+  let address
+
+  if (path.startsWith("m/44")) {
+    address = bitcoin.payments.p2pkh({ pubkey: wallet.publicKey }).address
+  } else if (path.startsWith("m/49")) {
+    address = bitcoin.payments.p2sh({ redeem: bitcoin.payments.p2wpkh({ pubkey: wallet.publicKey }) }).address
+  } else if (path.startsWith("m/84")) {
+    address = bitcoin.payments.p2wpkh({ pubkey: wallet.publicKey }).address
+  }
+
   return address
 }
 
 const getAddresses = async (mnemonic, paths, gap = 1) => {
   const seed = await bip39.mnemonicToSeed(mnemonic)
-  const hdWallet = hdkey.fromMasterSeed(seed)
+  const hdWallet = bitcoin.bip32.fromSeed(seed);
   const data = []
   for (let path of paths.split(",")) {
     let address = ""
@@ -54,7 +50,7 @@ const getAddresses = async (mnemonic, paths, gap = 1) => {
   return data
 }
 
-const checkValidity = async (seed, paths, gap, longestWord, updateIteration) => {
+const checkValidity = async (ecl, seed, paths, gap, longestWord, updateIteration) => {
   const mnemonic = seed.join(" ")
 
   if (!bip39.validateMnemonic(mnemonic)) return;
@@ -62,13 +58,13 @@ const checkValidity = async (seed, paths, gap, longestWord, updateIteration) => 
   updateIteration()
 
   const addressesPaths = await getAddresses(mnemonic, paths, gap)
-  const balances = []
+  const histories = []
 
   for (const addressPath of addressesPaths) {
-    let balance = 0
+    let history = false
     try {
-      balance = await getBalance(addressPath.address)
-      balances.push({ path: addressPath.path, address: addressPath.address, balance })
+      history = await getHistory(ecl, addressPath.address)
+      histories.push({ path: addressPath.path, address: addressPath.address, history })
     } catch (error) {
       problems.push({ mnemonic, path: addressPath.path, address: addressPath.address })
       continue
@@ -77,19 +73,19 @@ const checkValidity = async (seed, paths, gap, longestWord, updateIteration) => 
 
   console.log(`${new Date().toISOString()}:`, mnemonic.split(" ").map(word => lpad(word, [...Array(longestWord + 1 - word.length)].join(" "))).join(" "))
 
-  for (const balance of balances) {
-    if (balance.balance > 0) {
-      money.push({ mnemonic, ...balance })
+  for (const history of histories) {
+    if (history.history) {
+      money.push({ mnemonic, address: history.address, path: history.path })
     }
   }
 
   if (money.length > 0) {
-    console.log(`found ${money.length} addresses with a balance so far`)
+    console.log(`found ${money.length} addresses with a history so far`)
     console.log(money)
   }
 
   if (problems.length > 0) {
-    console.log("there was a problem looking up the balance for the following addresses")
+    console.log("there was a problem looking up the history for the following addresses")
     console.log(problems)
   }
 }
@@ -123,6 +119,7 @@ const getWrongWord = async (seedArray, otherIndex, progress, progressIndex, call
     progressFile(progress)
 
     const badWord = seedArray[i]
+    if (badWord != "x") continue
     await callback(i, seedArray)
     seedArray[i] = badWord
   }
@@ -160,26 +157,31 @@ const findMoney = async (badSeed, paths, gap, wordlist) => {
   const longestWord = findLongestWord(wordlist)
   const seedArray = badSeed.split(" ")
 
-  // single word replacement
-  await getWrongWord(seedArray, -1, progress, 0, async (wordOneIndex, seedArray) => {
-    await iterateWords(seedArray, wordlist, wordOneIndex, progress, 0, async (seedArray, updateIteration) => {
-      await checkValidity(seedArray, paths, gap, longestWord, updateIteration)
-    })
-  })
-  maxCounts(progress, 0, seedArray.length, wordlist.length)
+  const ecl = new ElectrumCli(process.env.ELECTRUM_PORT, process.env.ELECTRUM_HOST, process.env.ELECTRUM_PROTOCOL)
+  await ecl.connect()
+
+  // // single word replacement
+  // await getWrongWord(seedArray, -1, progress, 0, async (wordOneIndex, seedArray) => {
+  //   await iterateWords(seedArray, wordlist, wordOneIndex, progress, 0, async (seedArray, updateIteration) => {
+  //     await checkValidity(ecl, seedArray, paths, gap, longestWord, updateIteration)
+  //   })
+  // })
+  // maxCounts(progress, 0, seedArray.length, wordlist.length)
 
   // double word replacement
   await getWrongWord(seedArray, -1, progress, 1, async (wordOneIndex, seedArray) => {
     await getWrongWord(seedArray, wordOneIndex, progress, 2, async (wordTwoIndex, seedArray) => {
-      await iterateWords(seedArray, wordlist, wordOneIndex, progress, 1, async seedArray => {
+      await iterateWords(seedArray, wordlist, wordOneIndex, progress, 1, async (seedArray) => {
         await iterateWords(seedArray, wordlist, wordTwoIndex, progress, 2, async (seedArray, updateIteration) => {
-          await checkValidity(seedArray, paths, gap, longestWord, updateIteration)
+          await checkValidity(ecl, seedArray, paths, gap, longestWord, updateIteration)
         })
       })
     })
   })
   maxCounts(progress, 1, seedArray.length, wordlist.length)
   maxCounts(progress, 2, seedArray.length, wordlist.length)
+
+  await ecl.close()
 }
 
 const go = async (badSeed, paths, gap, wordlist) => {
